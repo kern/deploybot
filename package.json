@@ -1,0 +1,21 @@
+{
+  "name": "deploybot",
+  "version": "0.0.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "Alex Kern <alex@kern.io>",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "dependencies": {
+    "typescript": "^3.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^12.7.5",
+    "prettier": "^1.18.2",
+    "tslint": "^5.20.0",
+    "tslint-config-prettier": "^1.18.0",
+    "tslint-plugin-prettier": "^2.0.1"
+  }
+}
