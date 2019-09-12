@@ -9,6 +9,7 @@
     "node": ">=8.0.0"
   },
   "dependencies": {
+    "@octokit/rest": "^16.28.9",
     "typescript": "^3.6.3"
   },
   "devDependencies": {
