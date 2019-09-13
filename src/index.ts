@@ -7,72 +7,96 @@ const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
 });
 
-// function formatSlackMessage(query, response) {
-//   let entity;
-//
-//   // Extract the first entity from the result list, if any
-//   if (
-//     response &&
-//     response.data &&
-//     response.data.itemListElement &&
-//     response.data.itemListElement.length > 0
-//   ) {
-//     entity = response.data.itemListElement[0].result;
-//   }
-//
-//   // Prepare a rich Slack message
-//   // See https://api.slack.com/docs/message-formatting
-//   const slackMessage = {
-//     response_type: 'in_channel',
-//     text: `Query: ${query}`,
-//     attachments: [],
-//   };
-//
-//   if (entity) {
-//     const attachment = {
-//       color: '#3367d6',
-//     };
-//     if (entity.name) {
-//       attachment.title = entity.name;
-//       if (entity.description) {
-//         attachment.title = `${attachment.title}: ${entity.description}`;
-//       }
-//     }
-//     if (entity.detailedDescription) {
-//       if (entity.detailedDescription.url) {
-//         attachment.title_link = entity.detailedDescription.url;
-//       }
-//       if (entity.detailedDescription.articleBody) {
-//         attachment.text = entity.detailedDescription.articleBody;
-//       }
-//     }
-//     if (entity.image && entity.image.contentUrl) {
-//       attachment.image_url = entity.image.contentUrl;
-//     }
-//     slackMessage.attachments.push(attachment);
-//   } else {
-//     slackMessage.attachments.push({
-//       text: 'No results match your query...',
-//     });
-//   }
-//
-//   return slackMessage;
-// }
+// TODO(@kern): Make this configurable.
+const ENVIRONMENTS = ['staging', 'production'];
 
-async function processRequest(args) {
-  const res = await octokit.repos.createDeployment({
-    description: `Deploying ${args} version`,
-    owner: GITHUB_OWNER,
-    ref: "master",
-    repo: GITHUB_REPO
-  });
-
-  console.log(res); // tslint:disable-line no-console
+async function processStatusRequest() {
+  let text = `Deployment environments for _${GITHUB_OWNER}/${GITHUB_REPO}_\n\n`
+  for (const env of ENVIRONMENTS) {
+    text += `- *${env}*\n`
+  }
 
   return {
-    response_type: "in_channel",
-    text: JSON.stringify(args)
-  };
+    response_type: 'in_channel',
+    text
+  }
+}
+
+async function processRequest(args) {
+  if (args.length === 0) {
+    return processStatusRequest();
+  }
+
+  const env = args[0];
+  const ref = args[1] || 'master';
+
+  if (!ENVIRONMENTS.includes(env)) {
+    return {
+      response_type: 'in_channel',
+      text: `Invalid environment ${env}. Must be one of: ${ENVIRONMENTS.join(', ')}`
+    }
+  }
+
+  try {
+    const res = await octokit.repos.createDeployment({
+      description: `Deploying ${ref} to ${env}`,
+      owner: GITHUB_OWNER,
+      ref,
+      repo: GITHUB_REPO
+    });
+
+    return {
+      response_type: "in_channel",
+      attachments: [
+        {
+          title: 'Deployment started!',
+          title_link: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/deployments`,
+          color: '#00FF00',
+          fields: [
+            {
+              title: 'Environment',
+              value: env,
+              short: true
+            },
+            {
+              title: 'Git Ref',
+              value: ref,
+              short: true
+            }
+          ]
+        }
+      ]
+    }
+  } catch (err) {
+    console.error(err)
+
+    return {
+      response_type: 'in_channel',
+      attachments: [
+        {
+          title: 'Failed to deploy!',
+          color: '#FF0000',
+          fields: [
+            {
+              title: 'Environment',
+              value: env,
+              short: true
+            },
+            {
+              title: 'Git Ref',
+              value: ref,
+              short: true
+            },
+            {
+              title: 'Error',
+              value: err.message,
+              short: false
+            }
+          ]
+        }
+      ]
+    }
+  }
 }
 
 class HTTPError extends Error {
@@ -103,7 +127,7 @@ export async function main(req, res) {
 
     // Create the response
     const text = req.body.text;
-    const args = text.trim().split(/\s+/);
+    const args = text.trim().split(/\s+/).filter(s => s !== '');
     const response = await processRequest(args);
 
     // Send the formatted message back to Slack
