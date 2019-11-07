@@ -42,7 +42,8 @@ async function processRequest(args) {
       description: `Deploying ${ref} to ${env}`,
       owner: GITHUB_OWNER,
       ref,
-      repo: GITHUB_REPO
+      repo: GITHUB_REPO,
+      environment: env
     });
 
     return {
